@@ -13,7 +13,7 @@ psuedorandom order.
 ByteBuffer source = ByteBuffer.wrap("demonstration".getBytes());
 byte[] scrambled = new byte[source.remaining()];
 
-LSFR.maxLengthStream(4, 1)
+LFSR.maxLengthStream(4, 1)
 	.mapToInt(i -> (int) i - 1)
 	.filter(i -> i < scrambled.length)
 	.forEach(i -> scrambled[i] = source.get());
@@ -23,7 +23,7 @@ System.out.println(new String(scrambled));
 /* Unscramble */
 ByteBuffer unscrambled = ByteBuffer.allocate(scrambled.length);
 
-LSFR.maxLengthStream(4, 1)
+LFSR.maxLengthStream(4, 1)
 	.mapToInt(i -> (int) i - 1)
 	.filter(i -> i < scrambled.length)
 	.forEach(i -> unscrambled.put(scrambled[i]));

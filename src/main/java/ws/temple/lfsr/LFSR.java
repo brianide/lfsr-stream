@@ -1,12 +1,13 @@
-package ws.temple.lsfr;
+package ws.temple.lfsr;
 
+import java.nio.ByteBuffer;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
 import java.util.stream.StreamSupport;
 
-public class LSFR {
+public class LFSR {
 
 	/**
 	 * Array of xor masks yielding max-length LSFRs for bit-counts from 2 to 64. Values courtesy of:
@@ -151,6 +152,29 @@ public class LSFR {
 			}
 		}
 
+	}
+
+	public static void main(String[] args) {
+		// Scramble
+		ByteBuffer source = ByteBuffer.wrap("demonstration".getBytes());
+		byte[] scrambled = new byte[source.remaining()];
+
+		LFSR.maxLengthStream(4, 1)
+			.mapToInt(i -> (int) i - 1)
+			.filter(i -> i < scrambled.length)
+			.forEach(i -> scrambled[i] = source.get());
+
+		System.out.println(new String(scrambled));
+
+		// Unscramble
+		ByteBuffer unscrambled = ByteBuffer.allocate(scrambled.length);
+
+		LFSR.maxLengthStream(4, 1)
+			.mapToInt(i -> (int) i - 1)
+			.filter(i -> i < unscrambled.capacity())
+			.forEach(i -> unscrambled.put(scrambled[i]));
+		
+		System.out.println(new String(unscrambled.array()));
 	}
 
 }

@@ -6,6 +6,8 @@ import org.junit.Test;
 
 import static org.junit.Assert.*;
 
+import ws.temple.lfsr.LFSR;
+
 public class MaxLengthTests {
 	
 	// TODO Get a beefier rig to run 64-bit LSFR tests on
@@ -13,7 +15,7 @@ public class MaxLengthTests {
 	@Test
 	public void checkPeriod() {
 		for(int i = 2; i <= 16; i++) {
-			assertEquals(LSFR.maxLengthStream(i, 1).count(), (2 << i - 1) - 1);
+			assertEquals(LFSR.maxLengthStream(i, 1).count(), (2 << i - 1) - 1);
 		}
 	}
 	
@@ -22,7 +24,7 @@ public class MaxLengthTests {
 		boolean[] checks = new boolean[(2 << 16 - 1) - 1];
 		Arrays.fill(checks, false);
 		
-		LSFR.maxLengthStream(16, 1).mapToInt(i -> (int) i - 1).forEach(i -> {
+		LFSR.maxLengthStream(16, 1).mapToInt(i -> (int) i - 1).forEach(i -> {
 			assertFalse(checks[i]);
 			checks[i] = true;
 		});
