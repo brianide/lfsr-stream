@@ -10,7 +10,7 @@ import java.util.stream.StreamSupport;
 public class LFSR {
 
 	/**
-	 * Array of xor masks yielding max-length LSFRs for bit-counts from 2 to 64. Values courtesy of:
+	 * Array of xor masks yielding max-length LFSRs for bit-counts from 2 to 64. Values courtesy of:
 	 * https://users.ece.cmu.edu/~koopman/lfsr/index.html
 	 */
 	protected static final long[] MAX_POLIES = {
@@ -84,13 +84,13 @@ public class LFSR {
 	};
 
 	/**
-	 * Returns a maximum-length LSFR for the specified term length and starting state.
+	 * Returns a maximum-length LFSR for the specified term length and starting state.
 	 * 
 	 * @param bits
 	 *            The number of bits in the feedback term, between 2 and 64 (inclusive)
 	 * @param start
 	 *            The starting term, between 1 (inclusive) and 2^n - 1 (exclusive)
-	 * @return A stream yielding each of the feedback terms for the specified LSFR
+	 * @return A stream yielding each of the feedback terms for the specified LFSR
 	 */
 	public static LongStream maxLengthStream(int bits, long start) {
 		final long size = (2L << bits - 1) - 1;
@@ -102,31 +102,31 @@ public class LFSR {
 
 		if (size > 0) {
 			return StreamSupport
-				.longStream(new LSFRSpliterator(size, Spliterator.SIZED, MAX_POLIES[bits], start), false);
+				.longStream(new LFSRSpliterator(size, Spliterator.SIZED, MAX_POLIES[bits], start), false);
 		}
 		else {
-			return StreamSupport.longStream(new LSFRSpliterator(MAX_POLIES[bits], start), false);
+			return StreamSupport.longStream(new LFSRSpliterator(MAX_POLIES[bits], start), false);
 		}
 	}
 
 	/**
-	 * Spliterator implementation that handles the actual processing of LSFR steps.
+	 * Spliterator implementation that handles the actual processing of LFSR steps.
 	 */
-	protected static class LSFRSpliterator extends Spliterators.AbstractLongSpliterator {
+	protected static class LFSRSpliterator extends Spliterators.AbstractLongSpliterator {
 
 		protected final long xorMask;
 		protected long start;
-		protected long lsfr;
+		protected long lfsr;
 		protected boolean done = false;
 
-		protected LSFRSpliterator(long est, int additionalCharacteristics, long mask, long start) {
+		protected LFSRSpliterator(long est, int additionalCharacteristics, long mask, long start) {
 			super(est, additionalCharacteristics | Spliterator.DISTINCT);
 			this.xorMask = mask;
 			this.start = start;
-			this.lsfr = start;
+			this.lfsr = start;
 		}
 
-		protected LSFRSpliterator(long mask, long start) {
+		protected LFSRSpliterator(long mask, long start) {
 			this(Long.MAX_VALUE, 0, mask, start);
 		}
 
@@ -134,17 +134,17 @@ public class LFSR {
 		public boolean tryAdvance(LongConsumer action) {
 			if (!done) {
 				// Produce the term
-				action.accept(lsfr);
+				action.accept(lfsr);
 
 				// Transition to the next state
-				final int lsb = (int) (lsfr & 1);
-				lsfr >>>= 1;
+				final int lsb = (int) (lfsr & 1);
+				lfsr >>>= 1;
 				if (lsb > 0) {
-					lsfr ^= xorMask;
+					lfsr ^= xorMask;
 				}
 
 				// If we've returned to the initial state, then there are no more terms to yield
-				done = (lsfr == start);
+				done = (lfsr == start);
 				return true;
 			}
 			else {
