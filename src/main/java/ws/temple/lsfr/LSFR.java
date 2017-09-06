@@ -9,7 +9,8 @@ import java.util.stream.StreamSupport;
 public class LSFR {
 
 	/**
-	 * Array of xor masks yielding max-length LSFRs for bit-counts from 2 to 64
+	 * Array of xor masks yielding max-length LSFRs for bit-counts from 2 to 64. Values courtesy of:
+	 * https://users.ece.cmu.edu/~koopman/lfsr/index.html
 	 */
 	protected static final long[] MAX_POLIES = {
 		// @formatter:off
@@ -95,11 +96,16 @@ public class LSFR {
 
 		if (bits < 2 || bits > 64)
 			throw new IllegalArgumentException("Bit count must be between 2 and 64 (inclusive)");
-		if (start < 1 || start > size)
-			throw new IllegalArgumentException("Beginning state out of range (max: " + size + ")");
+		if (start < 1 || (size > 0 && start > size))
+			throw new IllegalArgumentException("Beginning state out of range");
 
-		return StreamSupport.longStream(new LSFRSpliterator(size, Spliterator.SIZED, MAX_POLIES[bits], start),
-				false);
+		if (size > 0) {
+			return StreamSupport
+				.longStream(new LSFRSpliterator(size, Spliterator.SIZED, MAX_POLIES[bits], start), false);
+		}
+		else {
+			return StreamSupport.longStream(new LSFRSpliterator(MAX_POLIES[bits], start), false);
+		}
 	}
 
 	/**
@@ -119,6 +125,10 @@ public class LSFR {
 			this.lsfr = start;
 		}
 
+		protected LSFRSpliterator(long mask, long start) {
+			this(Long.MAX_VALUE, 0, mask, start);
+		}
+
 		@Override
 		public boolean tryAdvance(LongConsumer action) {
 			if (!done) {
@@ -131,7 +141,7 @@ public class LSFR {
 				if (lsb > 0) {
 					lsfr ^= xorMask;
 				}
-				
+
 				// If we've returned to the initial state, then there are no more terms to yield
 				done = (lsfr == start);
 				return true;
