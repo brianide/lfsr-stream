@@ -1,9 +1,9 @@
 package ws.temple.lfsr;
 
-import java.nio.ByteBuffer;
+import java.util.NoSuchElementException;
+import java.util.PrimitiveIterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
 import java.util.stream.StreamSupport;
 
@@ -15,8 +15,8 @@ public class LFSR {
 	 */
 	protected static final long[] MAX_POLIES = {
 		// @formatter:off
-		/* 0*/ 0x0, /* INVALID */
-		/* 1*/ 0x0, /* INVALID */
+		/* 0*/ /* INVALID */
+		/* 1*/ /* INVALID */
 		/* 2*/ 0x3L,
 		/* 3*/ 0x6L,
 		/* 4*/ 0x9L,
@@ -84,97 +84,82 @@ public class LFSR {
 	};
 
 	/**
-	 * Returns a maximum-length LFSR for the specified term length and starting state.
+	 * Returns an iterator over the sequence of terms produced by the described LFSR.
 	 * 
 	 * @param bits
 	 *            The number of bits in the feedback term, between 2 and 64 (inclusive)
 	 * @param start
 	 *            The starting term, between 1 (inclusive) and 2^n - 1 (exclusive)
-	 * @return A stream yielding each of the feedback terms for the specified LFSR
+	 * 
+	 * @return
+	 */
+	public static PrimitiveIterator.OfLong maxLengthIterator(int bits, long start) {
+		checkArgs(bits, start);
+		return new LFSRIterator(MAX_POLIES[bits - 2], start);
+	}
+	
+	/**
+	 * Returns a Stream yielding the sequence of terms produced by the described LFSR.
+	 * 
+	 * @param bits
+	 *            The number of bits in the feedback term, between 2 and 64 (inclusive)
+	 * @param start
+	 *            The starting term, between 1 (inclusive) and 2^n - 1 (exclusive)
+	 * 
+	 * @return
 	 */
 	public static LongStream maxLengthStream(int bits, long start) {
-		final long size = (2L << bits - 1) - 1;
-
-		if (bits < 2 || bits > 64)
-			throw new IllegalArgumentException("Bit count must be between 2 and 64 (inclusive)");
-		if (start < 1 || (size > 0 && start > size))
-			throw new IllegalArgumentException("Beginning state out of range");
-
-		if (size > 0) {
-			return StreamSupport
-				.longStream(new LFSRSpliterator(size, Spliterator.SIZED, MAX_POLIES[bits], start), false);
-		}
-		else {
-			return StreamSupport.longStream(new LFSRSpliterator(MAX_POLIES[bits], start), false);
-		}
+		final PrimitiveIterator.OfLong iter = maxLengthIterator(bits, start);
+		return StreamSupport.longStream(Spliterators.spliteratorUnknownSize(iter, Spliterator.DISTINCT),
+				false);
 	}
 
-	/**
-	 * Spliterator implementation that handles the actual processing of LFSR steps.
-	 */
-	protected static class LFSRSpliterator extends Spliterators.AbstractLongSpliterator {
+	protected static void checkArgs(int bits, long start) {
+		if (bits < 2 || bits > 64)
+			throw new IllegalArgumentException("Bit count must be between 2 and 64 (inclusive)");
 
-		protected final long xorMask;
+		final int highBit = Long.numberOfTrailingZeros(Long.highestOneBit(start) + 1);
+		if (highBit > bits)
+			throw new IllegalArgumentException("Starting state out of range");
+	}
+
+	public static class LFSRIterator implements PrimitiveIterator.OfLong {
+
+		protected final long mask;
 		protected long start;
 		protected long lfsr;
 		protected boolean done = false;
 
-		protected LFSRSpliterator(long est, int additionalCharacteristics, long mask, long start) {
-			super(est, additionalCharacteristics | Spliterator.DISTINCT);
-			this.xorMask = mask;
+		protected LFSRIterator(long mask, long start) {
+			this.mask = mask;
 			this.start = start;
 			this.lfsr = start;
 		}
 
-		protected LFSRSpliterator(long mask, long start) {
-			this(Long.MAX_VALUE, 0, mask, start);
+		@Override
+		public boolean hasNext() {
+			return !done;
 		}
 
 		@Override
-		public boolean tryAdvance(LongConsumer action) {
-			if (!done) {
-				// Produce the term
-				action.accept(lfsr);
+		public long nextLong() {
+			if (done)
+				throw new NoSuchElementException();
 
-				// Transition to the next state
-				final int lsb = (int) (lfsr & 1);
-				lfsr >>>= 1;
-				if (lsb > 0) {
-					lfsr ^= xorMask;
-				}
+			// Save the current state
+			final long last = lfsr;
 
-				// If we've returned to the initial state, then there are no more terms to yield
-				done = (lfsr == start);
-				return true;
-			}
-			else {
-				return false;
-			}
+			// Transition LFSR the next state
+			lfsr >>>= 1;
+			if ((last & 1) > 0)
+				lfsr ^= mask;
+
+			// If we've returned to the initial state, then there are no more terms to yield
+			done = (lfsr == start);
+
+			return last;
 		}
 
 	}
-
-	public static void main(String[] args) {
-		// Scramble
-		ByteBuffer source = ByteBuffer.wrap("demonstration".getBytes());
-		byte[] scrambled = new byte[source.remaining()];
-
-		LFSR.maxLengthStream(4, 1)
-			.mapToInt(i -> (int) i - 1)
-			.filter(i -> i < scrambled.length)
-			.forEach(i -> scrambled[i] = source.get());
-
-		System.out.println(new String(scrambled));
-
-		// Unscramble
-		ByteBuffer unscrambled = ByteBuffer.allocate(scrambled.length);
-
-		LFSR.maxLengthStream(4, 1)
-			.mapToInt(i -> (int) i - 1)
-			.filter(i -> i < unscrambled.capacity())
-			.forEach(i -> unscrambled.put(scrambled[i]));
-		
-		System.out.println(new String(unscrambled.array()));
-	}
-
+	
 }
