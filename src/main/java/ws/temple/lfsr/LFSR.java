@@ -86,6 +86,41 @@ public class LFSR {
 	/**
 	 * Returns an iterator over the sequence of terms produced by the described LFSR.
 	 * 
+	 * @param mask
+	 *            The xor mask describing the "taps" polynomial
+	 * @param start
+	 *            The starting term, between 1 (inclusive) and 2^n - 1 (exclusive)
+	 * 
+	 * @return
+	 */
+	public static PrimitiveIterator.OfLong iterator(long mask, long start) {
+		final int highBitMask = Long.numberOfTrailingZeros(Long.highestOneBit(mask)) + 1;
+		final int highBitStart = Long.numberOfTrailingZeros(Long.highestOneBit(start)) + 1;
+		if (start < 1 || highBitStart > highBitMask)
+			throw new IllegalArgumentException("Starting state out of range");
+
+		return new LFSRIterator(mask, start);
+	}
+
+	/**
+	 * Returns a Stream yielding the sequence of terms produced by the described LFSR.
+	 * 
+	 * @param bits
+	 *            The xor mask describing the "taps" polynomial
+	 * @param start
+	 *            The starting term, between 1 (inclusive) and 2^n - 1 (exclusive)
+	 * 
+	 * @return
+	 */
+	public static LongStream stream(long mask, long start) {
+		final PrimitiveIterator.OfLong iter = iterator(mask, start);
+		return StreamSupport.longStream(Spliterators.spliteratorUnknownSize(iter, Spliterator.DISTINCT),
+				false);
+	}
+
+	/**
+	 * Returns an iterator over the sequence of terms produced by the described maximum-length LFSR.
+	 * 
 	 * @param bits
 	 *            The number of bits in the feedback term, between 2 and 64 (inclusive)
 	 * @param start
@@ -94,12 +129,15 @@ public class LFSR {
 	 * @return
 	 */
 	public static PrimitiveIterator.OfLong maxLengthIterator(int bits, long start) {
-		checkArgs(bits, start);
-		return new LFSRIterator(MAX_POLIES[bits - 2], start);
+		if (bits < 2 || bits > 64)
+			throw new IllegalArgumentException("Bit count must be between 2 and 64 (inclusive)");
+
+		return iterator(MAX_POLIES[bits - 2], start);
 	}
-	
+
 	/**
-	 * Returns a Stream yielding the sequence of terms produced by the described LFSR.
+	 * Returns a Stream yielding the sequence of terms produced by the described maximum-length
+	 * LFSR.
 	 * 
 	 * @param bits
 	 *            The number of bits in the feedback term, between 2 and 64 (inclusive)
@@ -112,15 +150,6 @@ public class LFSR {
 		final PrimitiveIterator.OfLong iter = maxLengthIterator(bits, start);
 		return StreamSupport.longStream(Spliterators.spliteratorUnknownSize(iter, Spliterator.DISTINCT),
 				false);
-	}
-
-	protected static void checkArgs(int bits, long start) {
-		if (bits < 2 || bits > 64)
-			throw new IllegalArgumentException("Bit count must be between 2 and 64 (inclusive)");
-
-		final int highBit = Long.numberOfTrailingZeros(Long.highestOneBit(start) + 1);
-		if (highBit > bits)
-			throw new IllegalArgumentException("Starting state out of range");
 	}
 
 	public static class LFSRIterator implements PrimitiveIterator.OfLong {
